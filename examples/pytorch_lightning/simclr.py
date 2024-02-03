@@ -55,9 +55,9 @@ class SimCLR(pl.LightningModule):
         return optim
     
 model = SimCLR()
-path_to_data = '/data/test' #'/Users/eliasharjes/Documents/uni/master_thesis/ssl/data/test'
+path_to_data = '/Users/eliasharjes/Documents/uni/master_thesis/ssl/data/train' # '/data/train' 
 input_size = 128
-batch_size = 3 # 256
+batch_size = 2 # 256
 num_workers = 0
 
 transform = SimCLRTransform(input_size=input_size, vf_prob=0.5, rr_prob=0.5, min_scale=0.08, normalize={'mean':IMAGENET_NORMALIZE['mean'], 'std':IMAGENET_NORMALIZE['std']}) # min_scale default is 0.08
@@ -97,7 +97,7 @@ dataloader_test = torch.utils.data.DataLoader(
 
 accelerator = "gpu" if torch.cuda.is_available() else "cpu"
 
-trainer = pl.Trainer(max_epochs=25, devices=1, accelerator=accelerator, log_every_n_steps=5)
+trainer = pl.Trainer(max_epochs=25, devices=2, accelerator=accelerator, log_every_n_steps=1)
 trainer.fit(model=model, train_dataloaders=dataloader_train_simclr)
 
 ## Plotting
