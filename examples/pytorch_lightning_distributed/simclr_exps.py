@@ -41,7 +41,7 @@ class SimCLR(pl.LightningModule):
 
 
 model = SimCLR()
-path_to_data = '/data/train' # '/Users/eliasharjes/Documents/uni/master_thesis/ssl/data/train' 
+path_to_data = '/Users/eliasharjes/Documents/uni/master_thesis/ssl/data/train' # '/data/train'
 input_size = 128
 batch_size = 3 # 256
 num_workers = 0
