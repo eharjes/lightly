@@ -16,10 +16,10 @@ from lightly.openapi_generated.swagger_client.models import (
     DockerRunScheduledPriority,
     DockerRunScheduledState,
     DockerRunState,
-    DockerWorkerConfigV3,
-    DockerWorkerConfigV3CreateRequest,
-    DockerWorkerConfigV3Docker,
+    DockerWorkerConfigOmniVXCreateRequest,
     DockerWorkerConfigV3Lightly,
+    DockerWorkerConfigV4,
+    DockerWorkerConfigV4Docker,
     DockerWorkerRegistryEntryData,
     DockerWorkerType,
     SelectionConfigV3,
@@ -219,7 +219,7 @@ class _ComputeWorkerMixin:
             worker_config_cc = _config_to_camel_case(cfg=worker_config)
             deserialize_worker_config = _get_deserialize(
                 api_client=self.api_client,
-                klass=DockerWorkerConfigV3Docker,
+                klass=DockerWorkerConfigV4Docker,
             )
             docker = deserialize_worker_config(worker_config_cc)
             _validate_config(cfg=worker_config, obj=docker)
@@ -237,17 +237,21 @@ class _ComputeWorkerMixin:
         else:
             lightly = None
 
-        config = DockerWorkerConfigV3(
+        config = DockerWorkerConfigV4(
             worker_type=DockerWorkerType.FULL,
             docker=docker,
             lightly=lightly,
             selection=selection,
         )
-        request = DockerWorkerConfigV3CreateRequest(
-            config=config, creator=self._creator
+        request = DockerWorkerConfigOmniVXCreateRequest.from_dict(
+            {
+                "version": "V4",
+                "config": config.to_dict(by_alias=True),
+                "creator": self._creator,
+            }
         )
         try:
-            response = self._compute_worker_api.create_docker_worker_config_v3(request)
+            response = self._compute_worker_api.create_docker_worker_config_vx(request)
             return response.id
         except ApiException as e:
             if e.body is None:
