@@ -55,7 +55,7 @@ class SimCLR(pl.LightningModule):
         return optim
     
 model = SimCLR()
-path_to_data = '/Users/eliasharjes/Documents/uni/master_thesis/ssl/data/train' # '/data/train' 
+path_to_data =  '/data/train' # '/Users/eliasharjes/Documents/uni/master_thesis/ssl/data/train' 
 input_size = 128
 batch_size = 2 # 256
 num_workers = 0
