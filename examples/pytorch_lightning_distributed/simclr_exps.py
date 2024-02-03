@@ -91,6 +91,6 @@ accelerator = "gpu" if torch.cuda.is_available() else "cpu"
 #     sync_batchnorm=True,
 #     use_distributed_sampler=True,  # or replace_sampler_ddp=True for PyTorch Lightning <2.0
 # )
-trainer = pl.trainer(strategy="ddp", accelerator="cpu", devices=3)
+trainer = pl.Trainer(strategy="ddp", accelerator="cpu", devices=3)
 trainer.fit(model=model, train_dataloaders=dataloader_train_simclr)
 
