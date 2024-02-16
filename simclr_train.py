@@ -88,7 +88,7 @@ def main(args):
     # Train with DDP and use Synchronized Batch Norm for a more accurate batch norm
     # calculation. Distributed sampling is also enabled with replace_sampler_ddp=True.
     with mlflow.start_run() as run:
-        mlf_logger = MLFlowLogger(run_id=run.info.run_id, experiment_name="ssl/experiments", tracking_uri="https://mlflow-ml.visiolab.io/", log_model=False)
+        mlf_logger = MLFlowLogger(run_id=run.info.run_id, experiment_name="ssl/experiments", tracking_uri="https://mlflow-ml.visiolab.io/", log_model=True)
         mlflow.log_metric("test", 1)
         mlflow.log_params(transform.params)
         mlflow.log_params(vars(args))
@@ -97,7 +97,8 @@ def main(args):
         every_n_epochs=1,  
         save_top_k=3,
         monitor="train_loss_ssl",
-        mode="min",      
+        mode="min",
+        save_last=True,   
     )
 
     trainer = pl.Trainer(
