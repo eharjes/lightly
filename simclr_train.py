@@ -6,21 +6,16 @@ from torch import nn
 from lightly.loss import NTXentLoss
 from lightly.models.modules import SimCLRProjectionHead
 # from lightly.transforms.simclr_transform import SimCLRTransform
+from lightly.transforms.sim_clr_transform import SimCLRTransform
 from lightly.transforms.utils import IMAGENET_NORMALIZE
 from lightly.data import LightlyDataset
 from argparse import ArgumentParser
-from lightning.pytorch.loggers import MLFlowLogger
+from pytorch_lightning.loggers import MLFlowLogger
 import mlflow
 import logging
 import os
+from pytorch_lightning.callbacks import ModelCheckpoint
 
-# Assuming this code is in simclr.py
-current_file_path = os.path.abspath(__file__)
-project_root = os.path.dirname(os.path.dirname(current_file_path))
-
-print("Project Root Directory:", project_root)
-
-from ...lightly.transforms.simclr_transform import SimCLRTransform
 
 class SimCLR(pl.LightningModule):
     def __init__(self):
@@ -44,7 +39,8 @@ class SimCLR(pl.LightningModule):
         z0 = self.forward(x0)
         z1 = self.forward(x1)
         loss = self.criterion(z0, z1)
-        self.logger.experiment.log_metric(run_id=self.logger.run_id, key="train_loss_ssl", value=loss)
+        self.log("train_loss_ssl", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # self.logger.experiment.log_metric(run_id=self.logger.run_id, key="train_loss_ssl", value=loss)
         return loss
 
     def configure_optimizers(self):
@@ -66,8 +62,7 @@ def main(args):
         ]
     )
 
-    print(transform.augmentation_params)
-
+ 
     dataset_train_simclr = LightlyDataset(input_dir=args.path_to_data_train, transform=transform)
 
     dataset_test = LightlyDataset(input_dir=args.path_to_data_test, transform=test_transform)
@@ -92,10 +87,21 @@ def main(args):
 
     # Train with DDP and use Synchronized Batch Norm for a more accurate batch norm
     # calculation. Distributed sampling is also enabled with replace_sampler_ddp=True.
+    with mlflow.start_run() as run:
+        mlf_logger = MLFlowLogger(run_id=run.info.run_id, experiment_name="ssl/experiments", tracking_uri="https://mlflow-ml.visiolab.io/", log_model=False)
+        mlflow.log_metric("test", 1)
+        mlflow.log_params(transform.params)
+        mlflow.log_params(vars(args))
 
-    mlf_logger = MLFlowLogger(experiment_name="ssl/experiments", tracking_uri="https://mlflow-ml.visiolab.io/")
-    mlflow.log_metric("test", 1, run_id=mlf_logger.run_id)
+    checkpoint_callback = ModelCheckpoint(
+        every_n_epochs=1,  
+        save_top_k=3,
+        monitor="train_loss_ssl",
+        mode="min",      
+    )
+
     trainer = pl.Trainer(
+        callbacks=[checkpoint_callback],
         logger=mlf_logger,
         max_epochs=args.max_epochs,
         devices=args.devices,
@@ -104,6 +110,7 @@ def main(args):
         sync_batchnorm=args.sync_batchnorm,
         use_distributed_sampler=args.use_distributed_sampler,  # or replace_sampler_ddp=True for PyTorch Lightning <2.0
         num_nodes=args.num_nodes,
+        log_every_n_steps=5,
     )
 
     trainer.fit(model=model, train_dataloaders=dataloader_train_simclr)
