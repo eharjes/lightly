@@ -16,6 +16,13 @@ import logging
 import os
 from pytorch_lightning.callbacks import ModelCheckpoint
 
+from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import normalize
+from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+from torchvision.utils import make_grid
 
 class SimCLR(pl.LightningModule):
     def __init__(self):
@@ -46,6 +53,57 @@ class SimCLR(pl.LightningModule):
     def configure_optimizers(self):
         optim = torch.optim.SGD(self.parameters(), lr=0.06)
         return optim
+    
+def generate_embeddings(model, dataloader):
+    """Generates representations for all images in the dataloader with
+    the given model
+    """
+
+    embeddings = []
+    filenames = []
+    with torch.no_grad():
+        for img, _, fnames in dataloader:
+            img = img.to(model.device)
+            emb = model.backbone(img).flatten(start_dim=1)
+            embeddings.append(emb)
+            filenames.extend(fnames)
+
+    embeddings = torch.cat(embeddings, 0)
+    embeddings = normalize(embeddings)
+    return embeddings, filenames
+
+def get_image_as_tensor(filename: str):
+    """Load an image file and convert it to a PyTorch tensor."""
+    image = Image.open(filename).convert('RGB')  # Convert to RGB to ensure 3 color channels
+    transform = torchvision.transforms.ToTensor()  # Convert image to a tensor
+    return transform(image)
+
+def plot_knn_examples(embeddings, filenames, n_neighbors=2, num_examples=10, save_dir='/Users/eliasharjes/Documents/uni/master_thesis/ssl/plot_test'):
+    path_to_data = '/Users/eliasharjes/Documents/uni/master_thesis/ssl/data/test'
+    nbrs = NearestNeighbors(n_neighbors=n_neighbors + 1).fit(embeddings)
+    _, indices = nbrs.kneighbors(embeddings)
+    num_examples = 2
+    samples_idx = np.random.choice(len(indices), size=num_examples, replace=False)
+
+    images_tensors = []
+    for idx in samples_idx:
+        # Include the sample itself as the first image
+        sample_and_neighbors_indices = indices[idx]
+        for neighbor_idx in sample_and_neighbors_indices:
+            fname = os.path.join(path_to_data, filenames[neighbor_idx])
+            image_tensor = get_image_as_tensor(fname)
+            images_tensors.append(image_tensor)
+
+    # Create a grid of images
+    images_grid = make_grid(images_tensors, nrow=n_neighbors + 1)
+    plt.figure(figsize=(20, 10))
+    plt.imshow(images_grid.permute(1, 2, 0))
+    plt.axis('off')
+
+    # Save the complete grid
+    os.makedirs('/Users/eliasharjes/Documents/uni/master_thesis/ssl/plot_test', exist_ok=True)
+    plt.savefig(os.path.join(save_dir, 'knn_examples_grid2.png'), bbox_inches='tight', dpi=100)
+    plt.close()
 
 def main(args):
     model = SimCLR()
@@ -88,7 +146,7 @@ def main(args):
     # Train with DDP and use Synchronized Batch Norm for a more accurate batch norm
     # calculation. Distributed sampling is also enabled with replace_sampler_ddp=True.
     with mlflow.start_run() as run:
-        mlf_logger = MLFlowLogger(run_id=run.info.run_id, experiment_name="ssl/experiments", tracking_uri="https://mlflow-ml.visiolab.io/", log_model=True)
+        mlf_logger = MLFlowLogger(run_id=run.info.run_id, experiment_name="ssl/experiments", tracking_uri="https://mlflow-ml.visiolab.io/", log_model=False)
         mlflow.log_metric("test", 1)
         mlflow.log_params(transform.params)
         mlflow.log_params(vars(args))
@@ -116,6 +174,13 @@ def main(args):
     )
 
     trainer.fit(model=model, train_dataloaders=dataloader_train_simclr)
+
+    # Plotting
+    plot_embeddings = True
+    if plot_embeddings:
+        model.eval()
+        embeddings, filenames = generate_embeddings(model, dataloader_test)
+        plot_knn_examples(embeddings, filenames, num_examples=30)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
