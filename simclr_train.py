@@ -93,16 +93,17 @@ def main(args):
         mlflow.log_params(transform.params)
         mlflow.log_params(vars(args))
 
-    checkpoint_callback = ModelCheckpoint(
+    checkpoint_callback_top_k = ModelCheckpoint(
+        dirpath='checkpoints',
         every_n_epochs=1,  
         save_top_k=3,
         monitor="train_loss_ssl",
         mode="min",
         save_last=True,   
     )
-
+        
     trainer = pl.Trainer(
-        callbacks=[checkpoint_callback],
+        callbacks=[checkpoint_callback_top_k],
         logger=mlf_logger,
         max_epochs=args.max_epochs,
         devices=args.devices,
