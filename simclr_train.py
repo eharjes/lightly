@@ -42,6 +42,15 @@ class SimCLR(pl.LightningModule):
         self.log("train_loss_ssl", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         # self.logger.experiment.log_metric(run_id=self.logger.run_id, key="train_loss_ssl", value=loss)
         return loss
+    
+    def validation_step(self, batch, batch_idx):
+        (x0, x1) = batch[0]
+        z0 = self.forward(x0)
+        z1 = self.forward(x1)
+        loss = self.criterion(z0, z1)
+        self.log("val_loss_ssl", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # self.logger.experiment.log_metric(run_id=self.logger.run_id, key="train_loss_ssl", value=loss)
+        return loss
 
     def configure_optimizers(self):
         optim = torch.optim.SGD(self.parameters(), lr=0.06)
@@ -65,7 +74,7 @@ def main(args):
  
     dataset_train_simclr = LightlyDataset(input_dir=args.path_to_data_train, transform=transform)
 
-    dataset_test = LightlyDataset(input_dir=args.path_to_data_test, transform=test_transform)
+    dataset_test = LightlyDataset(input_dir=args.path_to_data_test, transform=transform)
 
     dataloader_train_simclr = torch.utils.data.DataLoader(
         dataset_train_simclr,
@@ -96,7 +105,7 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         every_n_epochs=1,  
         save_top_k=3,
-        monitor="train_loss_ssl",
+        monitor="val_loss_ssl",
         mode="min",
         save_last=True,   
     )
@@ -114,7 +123,7 @@ def main(args):
         log_every_n_steps=5,
     )
 
-    trainer.fit(model=model, train_dataloaders=dataloader_train_simclr)
+    trainer.fit(model=model, train_dataloaders=dataloader_train_simclr, val_dataloaders=dataloader_test)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
